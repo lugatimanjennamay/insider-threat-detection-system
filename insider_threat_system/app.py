@@ -103,12 +103,6 @@ st.title(
     "🛡️ Insider Threat Detection System"
 )
 
-st.write(
-    """
-    This system uses Random Forest and SMOTE to classify
-    employee activity as Normal or potentially Malicious.
-    """
-)
 
 
 # ============================================================
