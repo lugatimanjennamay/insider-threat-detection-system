@@ -109,7 +109,7 @@ st.title(
 # 5. TABS
 # ============================================================
 
-prediction_tab, performance_tab, about_tab = st.tabs(
+prediction_tab, performance_tab = st.tabs(
     [
         "🔍 Analyze Activity",
         "📊 Model Performance"
