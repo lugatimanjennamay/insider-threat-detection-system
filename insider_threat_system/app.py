@@ -112,8 +112,7 @@ st.title(
 prediction_tab, performance_tab, about_tab = st.tabs(
     [
         "🔍 Analyze Activity",
-        "📊 Model Performance",
-        "ℹ️ About"
+        "📊 Model Performance"
     ]
 )
 
@@ -622,74 +621,3 @@ with performance_tab:
             """
         )
 
-
-# ============================================================
-# 8. ABOUT TAB
-# ============================================================
-
-with about_tab:
-
-    st.header(
-        "How the System Works"
-    )
-
-    st.markdown(
-        """
-### System Process
-
-1. **Dataset Loading**  
-   Employee profile and activity information are loaded.
-
-2. **Train-Test Split**  
-   The dataset is divided into training and testing data.
-
-3. **Validation Split**  
-   A portion of the training set is reserved for threshold
-   selection.
-
-4. **Preprocessing**  
-   Missing values are handled and categorical variables are
-   converted using one-hot encoding.
-
-5. **SMOTE**  
-   SMOTE is applied only to training data to balance the
-   Normal and Malicious classes.
-
-6. **Random Forest Training**  
-   Multiple decision trees learn patterns from employee
-   profile and behavioral activity information.
-
-7. **Threshold Selection**  
-   Different probability thresholds are evaluated using
-   validation data. The threshold with the best F1 score is
-   selected.
-
-8. **Final Evaluation**  
-   The trained model is evaluated using the untouched test
-   dataset.
-
-9. **Streamlit GUI**  
-   The user enters employee and activity information.
-
-10. **Prediction**  
-    The system calculates the malicious probability and
-    compares it against the selected decision threshold to
-    classify the activity as Normal or Malicious.
-        """
-    )
-
-
-    st.info(
-        """
-        Binary fields are displayed as **Yes / No** for easier
-        use.
-
-        Internally:
-
-        **Yes = 1**  
-        **No = 0**
-
-        The machine-learning model still receives the same
-        numerical values used during training.
-        """
-    )
