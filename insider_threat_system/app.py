@@ -59,6 +59,13 @@ def load_system():
         )
     )
 
+    selected_feature_indices = joblib.load(
+        os.path.join(
+            ARTIFACT_DIR,
+            "selected_feature_indices.joblib"
+        )
+    )
+
     metadata = joblib.load(
         os.path.join(
             ARTIFACT_DIR,
@@ -81,6 +88,7 @@ def load_system():
         model,
         preprocessor,
         threshold,
+        selected_feature_indices,
         metadata,
         metrics
     )
@@ -90,6 +98,7 @@ def load_system():
     model,
     preprocessor,
     best_threshold,
+    selected_feature_indices,
     metadata,
     metrics
 ) = load_system()
@@ -102,7 +111,6 @@ def load_system():
 st.title(
     "🛡️ Insider Threat Detection System"
 )
-
 
 
 # ============================================================
@@ -170,31 +178,72 @@ with prediction_tab:
 
     # ========================================================
     # CUSTOM LABELS
-    # Makes the GUI easier to understand.
     # ========================================================
 
     custom_labels = {
-        "employee_department": "Employee Department",
-        "employee_campus": "Employee Campus",
-        "employee_position": "Employee Position",
-        "employee_seniority_years": "Employee Seniority Years",
-        "is_contractor": "Is Contractor?",
-        "employee_classification": "Employee Classification",
-        "has_foreign_citizenship": "Has Foreign Citizenship?",
-        "has_criminal_record": "Has Criminal Record?",
-        "has_medical_history": "Has Medical History?",
-        "employee_origin_country": "Employee Origin Country",
-        "total_printed_pages": "Total Printed Pages",
-        "num_printed_pages_off_hours": "Printed Pages During Off-Hours",
-        "total_files_burned": "Total Files Burned",
-        "burned_from_other": "Files Burned From Other Source?",
-        "is_abroad": "Is Employee Abroad?",
-        "trip_day_number": "Trip Day Number",
-        "hostility_country_level": "Hostility Country Level",
-        "num_entries": "Number of Entries",
-        "num_unique_campus": "Number of Unique Campuses",
-        "late_exit_flag": "Late Exit?",
-        "entry_during_weekend": "Entry During Weekend?"
+
+        "employee_department":
+            "Employee Department",
+
+        "employee_campus":
+            "Employee Campus",
+
+        "employee_position":
+            "Employee Position",
+
+        "employee_seniority_years":
+            "Employee Seniority Years",
+
+        "is_contractor":
+            "Is Contractor?",
+
+        "employee_classification":
+            "Employee Classification",
+
+        "has_foreign_citizenship":
+            "Has Foreign Citizenship?",
+
+        "has_criminal_record":
+            "Has Criminal Record?",
+
+        "has_medical_history":
+            "Has Medical History?",
+
+        "employee_origin_country":
+            "Employee Origin Country",
+
+        "total_printed_pages":
+            "Total Printed Pages",
+
+        "num_printed_pages_off_hours":
+            "Printed Pages During Off-Hours",
+
+        "total_files_burned":
+            "Total Files Burned",
+
+        "burned_from_other":
+            "Files Burned From Other Source?",
+
+        "is_abroad":
+            "Is Employee Abroad?",
+
+        "trip_day_number":
+            "Trip Day Number",
+
+        "hostility_country_level":
+            "Hostility Country Level",
+
+        "num_entries":
+            "Number of Entries",
+
+        "num_unique_campus":
+            "Number of Unique Campuses",
+
+        "late_exit_flag":
+            "Late Exit?",
+
+        "entry_during_weekend":
+            "Entry During Weekend?"
     }
 
 
@@ -206,7 +255,10 @@ with prediction_tab:
 
         label = custom_labels.get(
             column,
-            column.replace("_", " ").title()
+            column.replace(
+                "_",
+                " "
+            ).title()
         )
 
 
@@ -214,7 +266,9 @@ with prediction_tab:
         # CATEGORICAL FIELDS
         # ----------------------------------------------------
 
-        if column in metadata["categorical_columns"]:
+        if column in metadata[
+            "categorical_columns"
+        ]:
 
             return st.selectbox(
                 label,
@@ -233,11 +287,18 @@ with prediction_tab:
 
             yes_no = st.selectbox(
                 label,
-                ["No", "Yes"],
+                [
+                    "No",
+                    "Yes"
+                ],
                 key=column
             )
 
-            return 1 if yes_no == "Yes" else 0
+            return (
+                1
+                if yes_no == "Yes"
+                else 0
+            )
 
 
         # ----------------------------------------------------
@@ -259,10 +320,6 @@ with prediction_tab:
 
         # ----------------------------------------------------
         # WHOLE NUMBER INPUT
-        #
-        # All remaining numeric fields in this dataset represent
-        # years, counts, days, classifications, or levels.
-        # Therefore they are displayed without unnecessary .00.
         # ----------------------------------------------------
 
         return st.number_input(
@@ -287,8 +344,8 @@ with prediction_tab:
 
         for column in left_fields:
 
-            user_input[column] = create_input(
-                column
+            user_input[column] = (
+                create_input(column)
             )
 
 
@@ -304,8 +361,8 @@ with prediction_tab:
 
         for column in right_fields:
 
-            user_input[column] = create_input(
-                column
+            user_input[column] = (
+                create_input(column)
             )
 
 
@@ -321,156 +378,197 @@ with prediction_tab:
         use_container_width=True
     ):
 
-        # ----------------------------------------------------
-        # CREATE ONE-ROW DATAFRAME FROM USER INPUT
-        # ----------------------------------------------------
+        try:
 
-        input_dataframe = pd.DataFrame(
-            [
-                {
-                    column: user_input[column]
+            # ------------------------------------------------
+            # CREATE ONE-ROW DATAFRAME
+            # ------------------------------------------------
 
-                    for column
-                    in metadata["columns"]
-                }
-            ]
-        )
+            input_dataframe = pd.DataFrame(
+                [
+                    {
+                        column:
+                            user_input[column]
 
-
-        # ----------------------------------------------------
-        # PREPROCESS INPUT
-        #
-        # Uses the same preprocessing used during training.
-        # ----------------------------------------------------
-
-        processed_input = preprocessor.transform(
-            input_dataframe
-        )
-
-
-        # ----------------------------------------------------
-        # GET MALICIOUS PROBABILITY
-        # ----------------------------------------------------
-
-        malicious_probability = (
-            model.predict_proba(
-                processed_input
-            )[0, 1]
-        )
-
-
-        # ----------------------------------------------------
-        # APPLY SELECTED THRESHOLD
-        # ----------------------------------------------------
-
-        prediction = int(
-            malicious_probability
-            >= best_threshold
-        )
-
-
-        # ----------------------------------------------------
-        # DISPLAY RESULT
-        # ----------------------------------------------------
-
-        st.divider()
-
-        st.header(
-            "Prediction Result"
-        )
-
-        (
-            result_column,
-            probability_column,
-            threshold_column
-        ) = st.columns(3)
-
-
-        with result_column:
-
-            st.metric(
-                "Classification",
-                "MALICIOUS"
-                if prediction == 1
-                else "NORMAL"
+                        for column
+                        in metadata["columns"]
+                    }
+                ]
             )
 
 
-        with probability_column:
+            # ------------------------------------------------
+            # PREPROCESS INPUT
+            #
+            # Produces the same encoded features used during
+            # final model training.
+            # ------------------------------------------------
 
-            st.metric(
-                "Malicious Probability",
-                f"{malicious_probability * 100:.2f}%"
+            processed_input = (
+                preprocessor.transform(
+                    input_dataframe
+                )
             )
 
 
-        with threshold_column:
+            # ------------------------------------------------
+            # APPLY FINAL FEATURE SELECTION
+            #
+            # The training script selected the best feature
+            # count using validation data.
+            #
+            # For the final model, this should correspond
+            # to the selected 80 encoded features.
+            # ------------------------------------------------
 
-            st.metric(
-                "Decision Threshold",
-                f"{best_threshold:.3f}"
+            selected_input = (
+                processed_input[
+                    :,
+                    selected_feature_indices
+                ]
             )
 
 
-        if prediction == 1:
+            # ------------------------------------------------
+            # GET MALICIOUS PROBABILITY
+            # ------------------------------------------------
 
-            st.error(
-                "⚠️ Potential malicious behavior detected."
+            malicious_probability = (
+                model.predict_proba(
+                    selected_input
+                )[0, 1]
             )
 
-        else:
 
-            st.success(
-                "✅ Employee activity classified as normal."
+            # ------------------------------------------------
+            # APPLY VALIDATION-SELECTED THRESHOLD
+            # ------------------------------------------------
+
+            prediction = int(
+                malicious_probability
+                >= best_threshold
             )
 
 
-        # ----------------------------------------------------
-        # RESULT EXPLANATION
-        # ----------------------------------------------------
+            # ------------------------------------------------
+            # DISPLAY RESULT
+            # ------------------------------------------------
 
-        with st.expander(
-            "How was this result determined?"
-        ):
+            st.divider()
 
-            st.write(
-                "The Random Forest estimated a malicious "
-                "probability of:"
+            st.header(
+                "Prediction Result"
             )
 
-            st.write(
-                f"**{malicious_probability * 100:.2f}%**"
-            )
+            (
+                result_column,
+                probability_column,
+                threshold_column
+            ) = st.columns(3)
 
-            st.write(
-                "The selected decision threshold is:"
-            )
 
-            st.write(
-                f"**{best_threshold * 100:.2f}%**"
-            )
+            with result_column:
+
+                st.metric(
+                    "Classification",
+                    (
+                        "MALICIOUS"
+                        if prediction == 1
+                        else "NORMAL"
+                    )
+                )
+
+
+            with probability_column:
+
+                st.metric(
+                    "Malicious Probability",
+                    (
+                        f"{malicious_probability * 100:.2f}%"
+                    )
+                )
+
+
+            with threshold_column:
+
+                st.metric(
+                    "Decision Threshold",
+                    f"{best_threshold:.3f}"
+                )
 
 
             if prediction == 1:
 
-                st.write(
-                    """
-                    The malicious probability is equal to or
-                    greater than the decision threshold.
-                    Therefore, the activity is classified as
-                    **Malicious**.
-                    """
+                st.error(
+                    "⚠️ Potential malicious behavior detected."
                 )
 
             else:
 
-                st.write(
-                    """
-                    The malicious probability is below the
-                    decision threshold. Therefore, the
-                    activity is classified as **Normal**.
-                    """
+                st.success(
+                    "✅ Employee activity classified as normal."
                 )
+
+
+            # ------------------------------------------------
+            # RESULT EXPLANATION
+            # ------------------------------------------------
+
+            with st.expander(
+                "How was this result determined?"
+            ):
+
+                st.write(
+                    "The Random Forest estimated a "
+                    "malicious probability of:"
+                )
+
+                st.write(
+                    (
+                        f"**{malicious_probability * 100:.2f}%**"
+                    )
+                )
+
+                st.write(
+                    "The selected decision threshold is:"
+                )
+
+                st.write(
+                    (
+                        f"**{best_threshold * 100:.2f}%**"
+                    )
+                )
+
+                if prediction == 1:
+
+                    st.write(
+                        """
+                        The malicious probability is equal to
+                        or greater than the decision threshold.
+                        Therefore, the activity is classified
+                        as **Malicious**.
+                        """
+                    )
+
+                else:
+
+                    st.write(
+                        """
+                        The malicious probability is below the
+                        decision threshold. Therefore, the
+                        activity is classified as **Normal**.
+                        """
+                    )
+
+
+        except Exception as error:
+
+            st.error(
+                "An error occurred while analyzing "
+                "the employee activity."
+            )
+
+            st.exception(error)
 
 
 # ============================================================
@@ -493,35 +591,60 @@ with performance_tab:
 
     col1.metric(
         "Accuracy",
-        f"{metrics['accuracy'] * 100:.2f}%"
+        (
+            f"{metrics['accuracy'] * 100:.2f}%"
+        )
     )
 
 
     col2.metric(
         "Precision",
-        f"{metrics['precision'] * 100:.2f}%"
+        (
+            f"{metrics['precision'] * 100:.2f}%"
+        )
     )
 
 
     col3.metric(
         "Recall",
-        f"{metrics['recall'] * 100:.2f}%"
+        (
+            f"{metrics['recall'] * 100:.2f}%"
+        )
     )
 
 
     col4.metric(
         "F1 Score",
-        f"{metrics['f1'] * 100:.2f}%"
-    )
-
-
-    st.write(
-        "**Selected Threshold:**",
-        round(
-            metrics["threshold"],
-            3
+        (
+            f"{metrics['f1'] * 100:.2f}%"
         )
     )
+
+
+    # ========================================================
+    # MODEL INFORMATION
+    # ========================================================
+
+    information_col1, information_col2 = (
+        st.columns(2)
+    )
+
+    with information_col1:
+
+        st.metric(
+            "Selected Threshold",
+            f"{metrics['threshold']:.3f}"
+        )
+
+    with information_col2:
+
+        st.metric(
+            "Selected Features",
+            metrics.get(
+                "selected_feature_count",
+                len(selected_feature_indices)
+            )
+        )
 
 
     # ========================================================
@@ -562,20 +685,34 @@ with performance_tab:
         "Normalized Confusion Matrix"
     )
 
-    row_totals = cm.sum(
-        axis=1,
-        keepdims=True
-    )
+    if (
+        "normalized_confusion_matrix"
+        in metrics
+    ):
 
-    normalized_cm = np.divide(
-        cm,
-        row_totals,
-        out=np.zeros_like(
+        normalized_cm = np.array(
+            metrics[
+                "normalized_confusion_matrix"
+            ]
+        )
+
+    else:
+
+        row_totals = cm.sum(
+            axis=1,
+            keepdims=True
+        )
+
+        normalized_cm = np.divide(
             cm,
-            dtype=float
-        ),
-        where=row_totals != 0
-    )
+            row_totals,
+            out=np.zeros_like(
+                cm,
+                dtype=float
+            ),
+            where=row_totals != 0
+        )
+
 
     normalized_df = pd.DataFrame(
         normalized_cm,
@@ -595,6 +732,76 @@ with performance_tab:
         ),
         use_container_width=True
     )
+
+
+    # ========================================================
+    # BALANCED DIAGNOSTIC
+    # ========================================================
+
+    if (
+        "balanced_confusion_matrix"
+        in metrics
+    ):
+
+        st.subheader(
+            "Balanced Diagnostic"
+        )
+
+        balanced_col1, balanced_col2, \
+        balanced_col3, balanced_col4 = (
+            st.columns(4)
+        )
+
+        balanced_col1.metric(
+            "Accuracy",
+            (
+                f"{metrics['balanced_accuracy'] * 100:.2f}%"
+            )
+        )
+
+        balanced_col2.metric(
+            "Precision",
+            (
+                f"{metrics['balanced_precision'] * 100:.2f}%"
+            )
+        )
+
+        balanced_col3.metric(
+            "Recall",
+            (
+                f"{metrics['balanced_recall'] * 100:.2f}%"
+            )
+        )
+
+        balanced_col4.metric(
+            "F1 Score",
+            (
+                f"{metrics['balanced_f1'] * 100:.2f}%"
+            )
+        )
+
+        balanced_cm = np.array(
+            metrics[
+                "balanced_confusion_matrix"
+            ]
+        )
+
+        balanced_df = pd.DataFrame(
+            balanced_cm,
+            index=[
+                "Actual Normal",
+                "Actual Malicious"
+            ],
+            columns=[
+                "Predicted Normal",
+                "Predicted Malicious"
+            ]
+        )
+
+        st.dataframe(
+            balanced_df,
+            use_container_width=True
+        )
 
 
     # ========================================================
@@ -620,4 +827,3 @@ with performance_tab:
             **F1 Score** – balance between Precision and Recall.
             """
         )
-
